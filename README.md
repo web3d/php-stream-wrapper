@@ -6,7 +6,7 @@ php stream wrapper mysql lib
 ## 用法:
 
 ```php
-stream_register_wrapper('tcmysqlfs', 'TimeCheer_StreamWrapper_Adapter_MySQL');
+stream_register_wrapper('tcmysqlfs', 'TimeCheer_StreamWrapper_MySQL');
 
 $dir_prefix = 'tcmysqlfs://root@localhost/test';
 

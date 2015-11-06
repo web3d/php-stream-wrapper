@@ -1,6 +1,6 @@
 <?php
 
-require_once dirname(__FILE__) . '/../Base.php';
+require_once dirname(__FILE__) . '/Base.php';
 
 /**
  * 实现基于DB的 stream wrapper
@@ -14,7 +14,7 @@ require_once dirname(__FILE__) . '/../Base.php';
  * $fr = fopen('tcmysqlfs://testuser@localhost/testdb', 'r');
  * $fw = fopen('tcmysqlfs://testuser:testpassword@localhost/testdb', 'w');
  */
-class TimeCheer_StreamWrapper_Adapter_MySQL extends TimeCheer_StreamWrapper_Base {
+class TimeCheer_StreamWrapper_MySQL extends TimeCheer_StreamWrapper_Base {
 
     /**
      *

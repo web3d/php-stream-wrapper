@@ -1,7 +1,7 @@
 <?php
 
-require dirname(__FILE__) . '/../src/TimeCheer/StreamWrapper/Adapter/MySQL.php';
-stream_register_wrapper('tcmysqlfs', 'TimeCheer_StreamWrapper_Adapter_MySQL');
+require dirname(__FILE__) . '/../src/TimeCheer/StreamWrapper/MySQL.php';
+stream_register_wrapper('tcmysqlfs', 'TimeCheer_StreamWrapper_MySQL');
 
 $dir_prefix = 'tcmysqlfs://root@localhost/test';
 
