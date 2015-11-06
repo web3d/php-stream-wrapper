@@ -11,9 +11,11 @@ CREATE TABLE `tcmysqlfs_file` (
   `dir_id` int(11) NOT NULL DEFAULT '0',
   `name` varchar(255) NOT NULL DEFAULT '',
   `data` varchar(255) NOT NULL,
+  `meta` varchar(2000) DEFAULT NULL,
   `created_time` int(11) NOT NULL DEFAULT '0',
   `updated_time` int(11) NOT NULL DEFAULT '0',
   PRIMARY KEY (`id`),
   KEY `dir_id` (`dir_id`),
   KEY `name` (`name`)
-) ENGINE=MyISAM AUTO_INCREMENT=20 DEFAULT CHARSET=utf8;
+) ENGINE=MyISAM AUTO_INCREMENT=32 DEFAULT CHARSET=utf8;
+
