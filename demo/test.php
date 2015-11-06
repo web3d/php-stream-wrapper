@@ -34,6 +34,8 @@ fwrite($fp, "_added2222_");
 fwrite($fp, "_added2322_");
 fclose($fp);
 
+var_dump(file_exists($file));
+
 //读取
 $fp = fopen($file, 'r');
 if (!$fp) {

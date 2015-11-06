@@ -49,6 +49,15 @@ class TimeCheer_StreamWrapper_MySQL extends TimeCheer_StreamWrapper_Base {
      * @var string 
      */
     protected $file;
+    
+    /**
+     *
+     * @var array 当前文件的元信息
+     */
+    protected $stat;
+    
+    protected $dir_mode = 16895 ; //040000 + 0222;
+    protected $file_mode = 33279 ; //0100000 + 0777;
 
     protected $tablePrefix = 'tcmysqlfs_';
     protected $defaultTableDir = 'dir';
@@ -179,28 +188,50 @@ class TimeCheer_StreamWrapper_MySQL extends TimeCheer_StreamWrapper_Base {
         if (!$dir_row)
             return false;
         
-        $file_row = $this->fetchFile($this->file, $dir_row['id']);
+        $file_row = $this->fetchFile($this->file, $dir_row['id'], 'id, meta');
         $time = time();
 
         switch ($mode) {
             case 'w' :
                 //如果已经存在,则更新
                 if ($file_row) {
-                    $sql = "UPDATE {$this->tableFile} SET data = ?, updated_time = $time WHERE id={$file_row['id']}";
+                    $this->stat = unserialize($file_row['meta']);
+                    if (!$this->stat) {
+                        $this->initStatInfo();
+                    }
+                    $this->stat['ctime'] = $this->stat[10] = time();
+                    
+                    $sql = "UPDATE {$this->tableFile} SET data = ?, updated_time = {$time}, meta='" . serialize($this->stat) . "' WHERE id={$file_row['id']}";
+                    
                 } else {
-                    $sql = "INSERT INTO {$this->tableFile}(name, data, dir_id, created_time) VALUES('{$this->file}', ?, {$dir_row['id']}, $time)";
+                    $this->initStatInfo();
+                    $this->stat['ctime'] = $this->stat[10] = time();
+                    
+                    $sql = "INSERT INTO {$this->tableFile}(name, data, dir_id, created_time, meta) VALUES('{$this->file}', ?, {$dir_row['id']}, $time, '" . serialize($this->stat) . "')";
+                    
                 }
                 $this->ps = $this->pdo->prepare($sql);
                 break;
             case 'r' :
+                $this->initStatInfo();
+                $this->stat['mode'] = $this->stat[2] = $this->file_mode;
                 $this->ps = $this->pdo->prepare("SELECT * FROM {$this->tableFile} WHERE name = '{$this->file}' AND dir_id = {$dir_row['id']} LIMIT 1");
                 break;
             case 'a':
                 //如果已经存在,则追加 暂不考虑性能问题
                 if ($file_row) {
-                    $sql = "UPDATE {$this->tableFile} SET data = CONCAT(data,?), updated_time = $time WHERE id={$file_row['id']}";
+                    $this->stat = unserialize($file_row['meta']);
+                    if (!$this->stat) {
+                        $this->stat = $this->initStatInfo();
+                    }
+                    $this->stat['ctime'] = $this->stat[10] = time();
+                    
+                    $sql = "UPDATE {$this->tableFile} SET data = CONCAT(data,?), updated_time = $time, meta='" . serialize($this->stat) . "' WHERE id={$file_row['id']}";
                 } else {
-                    $sql = "INSERT INTO {$this->tableFile}(name, data, dir_id, created_time) VALUES('{$this->file}', ?, {$dir_row['id']}, $time)";
+                    $this->initStatInfo();
+                    $this->stat['ctime'] = $this->stat[10] = time();
+                    
+                    $sql = "INSERT INTO {$this->tableFile}(name, data, dir_id, created_time, meta) VALUES('{$this->file}', ?, {$dir_row['id']}, $time '" . serialize($this->stat) . "')";
                 }
                 $this->ps = $this->pdo->prepare($sql);
                 break;
@@ -231,7 +262,7 @@ class TimeCheer_StreamWrapper_MySQL extends TimeCheer_StreamWrapper_Base {
     }
 
     public function stream_stat() {
-        
+        return $this->stat;
     }
 
     public function stream_tell() {
@@ -252,7 +283,12 @@ class TimeCheer_StreamWrapper_MySQL extends TimeCheer_StreamWrapper_Base {
     }
 
     public function url_stat($path, $flags) {
+        if (!$this->parsePath($path) || !$this->dir || !$this->file) {
+            return false;
+        }
+        $this->initDb();
         
+        return $this->getFileMeta($this->dir, $this->file);
     }
     
     /**
@@ -288,6 +324,10 @@ class TimeCheer_StreamWrapper_MySQL extends TimeCheer_StreamWrapper_Base {
      * @return boolean
      */
     protected function initDb() {
+        if ($this->pdo instanceof PDO) {//???是否会限制使用场景
+            return true;
+        }
+        
         try {
             $this->pdo = new PDO("mysql:host={$this->dbConf['host']};dbname={$this->dbConf['path']}", $this->dbConf['user'], isset($this->dbConf['pass']) ? $this->dbConf['pass'] : '', array());
         } catch (PDOException $e) {
@@ -320,11 +360,80 @@ class TimeCheer_StreamWrapper_MySQL extends TimeCheer_StreamWrapper_Base {
         return $ps->fetch(PDO::FETCH_ASSOC);
     }
     
+    /**
+     * 根据目录名和文件名取file
+     * @param string $dir
+     * @param sting $name
+     * @param string $field
+     * @return mixed
+     */
+    public function getFile($dir, $name, $field = '*') {
+        $dir_row = $this->fetchDir($dir);
+        if (!$dir_row)
+            return false;
+        
+        return $this->fetchFile($name, $dir_row['id'], $field);
+    }
+    
+    /**
+     * 统计db中文件夹下文件的数量
+     * @param int $dir_id
+     * @return int
+     */
     protected function countFileByDir($dir_id) {
         $ps = $this->pdo->prepare("SELECT id FROM {$this->tableFile} WHERE dir_id = ? LIMIT 1");
         $ps->execute(array($dir_id));
         
         return $ps->rowCount();
+    }
+
+    /**
+     * 查询目录/文件元属性信息
+     * @param string $dir 目录
+     * @param string $fileName 文件名
+     */
+    protected function getFileMeta($dir, $fileName) {
+        if (!$dir || !$fileName) {
+            return false;
+        }
+        
+        echo $dir .'/'. $fileName;
+        
+        $file_row = $this->getFile($dir, $fileName, 'id, meta');
+        if (!$file_row) {
+            return false;
+        }
+            
+        if (empty($file_row['meta'])) {
+            $this->initStatInfo();
+        } else {
+            return $this->stat = unserialize($file_row['meta']);
+        }
+    }
+
+    /**
+     * 构建初始化目录/文件属性信息
+     * @param bool $is_file 区别文件还是目录
+     */
+    public function initStatInfo($is_file = true) {
+        $this->stat['dev'] = $this->stat[0] = 0;
+        $this->stat['ino'] = $this->stat[1] = 0;
+
+        if ($is_file)
+            $this->stat['mode'] = $this->stat[2] = $this->file_mode;
+        else
+            $this->stat['mode'] = $this->stat[2] = $this->dir_mode;
+
+        $this->stat['nlink'] = $this->stat[3] = 0;
+        $this->stat['uid'] = $this->stat[4] = 0;
+        $this->stat['gid'] = $this->stat[5] = 0;
+        $this->stat['rdev'] = $this->stat[6] = 0;
+        $this->stat['size'] = $this->stat[7] = 0;
+        $this->stat['atime'] = $this->stat[8] = 0;
+        $this->stat['mtime'] = $this->stat[9] = 0;
+        $this->stat['ctime'] = $this->stat[10] = 0;
+        $this->stat['blksize'] = $this->stat[11] = 0;
+        $this->stat['blocks'] = $this->stat[12] = 0;
     }
 
 }
