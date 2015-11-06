@@ -1,7 +1,9 @@
-# mysql-php-streamwrapper
+# php-streamwrapper-mysql
 php stream wrapper mysql lib
 
-用法:
+环境:PHP 5.2
+
+## 用法:
 
 ```php
 stream_register_wrapper('tcmysqlfs', 'TimeCheer_StreamWrapper_Adapter_MySQL');
@@ -43,9 +45,9 @@ echo fread($fp, 20000);
 fclose($fp);
 ```
 
-开发日志:
+## 开发日志:
 
-2015-11-06
+### 2015-11-06
 
   1. 确定代码基础结构;
   2. 初步完成目录的创建\删除 mkdir rmdir
