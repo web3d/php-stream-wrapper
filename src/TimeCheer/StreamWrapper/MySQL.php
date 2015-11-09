@@ -476,7 +476,9 @@ class TimeCheer_StreamWrapper_MySQL extends TimeCheer_StreamWrapper_Base {
     }
     
     protected function debug($arg) {
-        //var_dump($arg);
+        if (constant('DEBUG')) {
+            var_dump($arg);
+        }
     }
 
 }
