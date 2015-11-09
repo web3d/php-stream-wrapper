@@ -66,29 +66,43 @@ class TimeCheer_StreamWrapper_MySQL extends TimeCheer_StreamWrapper_Base {
     protected $tableDir;
     protected $tableFile;
     
+    /**
+     * stream open
+     * @var resource 
+     */
+    protected $handle;
     
+    /**
+     * The stream context.
+     *
+     * This is set automatically when the stream wrapper is created by
+     * PHP. Note that it is not set through a constructor.
+     */
+    public $context;
+
     public function __construct() {
         $this->tableDir = $this->tablePrefix . $this->defaultTableDir;
         $this->tableFile = $this->tablePrefix . $this->defaultTableFile;
     }
 
     public function dir_closedir() {
-        
+        $this->debug('dir_closedir');
     }
 
     public function dir_opendir($path, $options) {
-        
+        $this->debug('dir_opendir');
     }
 
     public function dir_readdir() {
-        
+        $this->debug('dir_readdir');
     }
 
     public function dir_rewinddir() {
-        
+        $this->debug('dir_rewinddir');
     }
 
     public function mkdir($path, $mode, $options) {
+        $this->debug('mkdir');
         if (!$this->parsePath($path, false) || !$this->dir) {
             return false;
         }
@@ -113,6 +127,7 @@ class TimeCheer_StreamWrapper_MySQL extends TimeCheer_StreamWrapper_Base {
      * @return boolean
      */
     public function rename($path_from, $path_to) {
+        $this->debug('rename');
         if (!$this->parsePath($path_from, false) || !$this->dir) {
             return false;
         }
@@ -129,6 +144,7 @@ class TimeCheer_StreamWrapper_MySQL extends TimeCheer_StreamWrapper_Base {
     }
 
     public function rmdir($path, $options) {
+        $this->debug('rmdir');
         if (!$this->parsePath($path, false) || !$this->dir) {
             return false;
         }
@@ -144,30 +160,39 @@ class TimeCheer_StreamWrapper_MySQL extends TimeCheer_StreamWrapper_Base {
         return $ps->execute(array($this->dir));
     }
 
+    /**
+     * 检索基础资源，响应stream_select()函数
+     * @param int $cast_as
+     * @return resource
+     */
     public function stream_cast($cast_as) {
-        
+        $this->debug('stream_cast');
+                
+        return $this->handle;
     }
 
     public function stream_close() {
-        
+        $this->debug('stream_close');
     }
 
     public function stream_eof() {
+        $this->debug('stream_eof');
         $this->ps->execute(array($this->rowId));
         
         return (bool) $this->ps->rowCount();
     }
 
     public function stream_flush() {
+        $this->debug('stream_flush');
         
     }
 
     public function stream_lock($operation) {
-        
+        $this->debug('stream_lock');
     }
 
     public function stream_metadata($path, $option, $value) {
-        
+        $this->debug('stream_metadata');
     }
 
     /**
@@ -179,10 +204,13 @@ class TimeCheer_StreamWrapper_MySQL extends TimeCheer_StreamWrapper_Base {
      * @param string $opened_path
      */
     public function stream_open($path, $mode, $options, &$opened_path) {
+        $this->debug('stream_open');
         if (!$this->parsePath($path) || !$this->dir || !$this->file) {
             return false;
         }
         $this->initDb();
+        $this->handle = fopen('php://temp', 'rw');
+        rewind($this->handle);
         
         $dir_row = $this->fetchDir($this->dir);
         if (!$dir_row)
@@ -193,6 +221,8 @@ class TimeCheer_StreamWrapper_MySQL extends TimeCheer_StreamWrapper_Base {
 
         switch ($mode) {
             case 'w' :
+            case 'w+':
+            case 'wb':
                 //如果已经存在,则更新
                 if ($file_row) {
                     $this->stat = unserialize($file_row['meta']);
@@ -213,11 +243,15 @@ class TimeCheer_StreamWrapper_MySQL extends TimeCheer_StreamWrapper_Base {
                 $this->ps = $this->pdo->prepare($sql);
                 break;
             case 'r' :
+            case 'r+':
+            case 'rb':
                 $this->initStatInfo();
                 $this->stat['mode'] = $this->stat[2] = $this->file_mode;
                 $this->ps = $this->pdo->prepare("SELECT * FROM {$this->tableFile} WHERE name = '{$this->file}' AND dir_id = {$dir_row['id']} LIMIT 1");
                 break;
             case 'a':
+            case 'a+':
+            case 'ab':
                 //如果已经存在,则追加 暂不考虑性能问题
                 if ($file_row) {
                     $this->stat = unserialize($file_row['meta']);
@@ -242,6 +276,7 @@ class TimeCheer_StreamWrapper_MySQL extends TimeCheer_StreamWrapper_Base {
     }
 
     public function stream_read($count) {
+        $this->debug('stream_read');
         $this->ps->execute();
         if ($this->ps->rowCount() == 0)
             return false;
@@ -254,35 +289,41 @@ class TimeCheer_StreamWrapper_MySQL extends TimeCheer_StreamWrapper_Base {
     }
 
     public function stream_seek($offset, $whence = SEEK_SET) {
-        
+        $this->debug('stream_seek');
+        return false;
     }
 
     public function stream_set_option($option, $arg1, $arg2) {
-        
+        $this->debug('stream_set_option');
     }
 
     public function stream_stat() {
+        $this->debug('stream_stat');
         return $this->stat;
     }
 
     public function stream_tell() {
+        $this->debug('stream_tell');
         return $this->rowId;
     }
 
     public function stream_truncate($new_size) {
-        
+        $this->debug('stream_truncate');
     }
 
     public function stream_write($data) {
+        $this->debug('stream_write');
         $this->ps->execute(array($data));
+
         return strlen($data);
     }
 
     public function unlink($path) {
-        
+        $this->debug('unlink');
     }
 
     public function url_stat($path, $flags) {
+        $this->debug('url_stat');
         if (!$this->parsePath($path) || !$this->dir || !$this->file) {
             return false;
         }
@@ -432,6 +473,10 @@ class TimeCheer_StreamWrapper_MySQL extends TimeCheer_StreamWrapper_Base {
         $this->stat['ctime'] = $this->stat[10] = 0;
         $this->stat['blksize'] = $this->stat[11] = 0;
         $this->stat['blocks'] = $this->stat[12] = 0;
+    }
+    
+    protected function debug($arg) {
+        //var_dump($arg);
     }
 
 }

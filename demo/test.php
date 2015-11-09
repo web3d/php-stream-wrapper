@@ -42,5 +42,4 @@ if (!$fp) {
     echo 'file resource failed.';
 }
 echo fread($fp, 20000);
-            
 fclose($fp);
