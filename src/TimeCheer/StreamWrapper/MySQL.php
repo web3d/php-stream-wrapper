@@ -396,9 +396,7 @@ class TimeCheer_StreamWrapper_MySQL extends TimeCheer_StreamWrapper_Base {
         if (!$dir || !$fileName) {
             return false;
         }
-        
-        echo $dir .'/'. $fileName;
-        
+                
         $file_row = $this->getFile($dir, $fileName, 'id, meta');
         if (!$file_row) {
             return false;
